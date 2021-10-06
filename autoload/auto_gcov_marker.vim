@@ -1,43 +1,40 @@
-if exists('g:autoloaded_auto_gcov_marker') || &cp || version < 700
-    finish
-else
-    if !exists("g:auto_gcov_marker_line_covered")
-        let g:auto_gcov_marker_line_covered = '✓'
-    endif
-    if !exists("g:auto_gcov_marker_line_uncovered")
-        let g:auto_gcov_marker_line_uncovered = '✘'
-    endif
-    if !exists("g:auto_gcov_marker_branch_covered")
-        let g:auto_gcov_marker_branch_covered = '✓✓'
-    endif
-    if !exists("g:auto_gcov_marker_branch_partly_covered")
-        let g:auto_gcov_marker_branch_partly_covered = '✓✘'
-    endif
-    if !exists("g:auto_gcov_marker_branch_uncovered")
-        let g:auto_gcov_marker_branch_uncovered = '✘✘'
-    endif
-    if !exists("g:auto_gcov_marker_gcov_path")
-        let g:auto_gcov_marker_gcov_path = '.'
-    endif
-    if !exists("g:auto_gcov_marker_gcno_path")
-        let g:auto_gcov_marker_gcno_path = '.'
-    endif
 
-    if !hlexists('GcovLineCovered')
-        highlight GCovLineCovered ctermfg=green guifg=green
-    endif
-    if !hlexists('GcovLineUncovered')
-        highlight GCovLineUncovered ctermfg=red guifg=red
-    endif
-    if !hlexists('GcovBranchCovered')
-        highlight GCovBranchCovered ctermfg=green guifg=green
-    endif
-    if !hlexists('GcovBranchPartlyCovered')
-        highlight GCovBranchPartlyCovered ctermfg=yellow guifg=yellow
-    endif
-    if !hlexists('GcovBranchUncovered')
-        highlight GCovBranchUncovered ctermfg=red guifg=red
-    endif
+if !exists("g:auto_gcov_marker_line_covered")
+	let g:auto_gcov_marker_line_covered = '✓'
+endif
+if !exists("g:auto_gcov_marker_line_uncovered")
+	let g:auto_gcov_marker_line_uncovered = '✘'
+endif
+if !exists("g:auto_gcov_marker_branch_covered")
+	let g:auto_gcov_marker_branch_covered = '✓✓'
+endif
+if !exists("g:auto_gcov_marker_branch_partly_covered")
+	let g:auto_gcov_marker_branch_partly_covered = '✓✘'
+endif
+if !exists("g:auto_gcov_marker_branch_uncovered")
+	let g:auto_gcov_marker_branch_uncovered = '✘✘'
+endif
+if !exists("g:auto_gcov_marker_gcov_path")
+	let g:auto_gcov_marker_gcov_path = '.'
+endif
+if !exists("g:auto_gcov_marker_gcno_path")
+	let g:auto_gcov_marker_gcno_path = '.'
+endif
+
+if !hlexists('GcovLineCovered')
+	highlight GCovLineCovered ctermfg=green guifg=green
+endif
+if !hlexists('GcovLineUncovered')
+	highlight GCovLineUncovered ctermfg=red guifg=red
+endif
+if !hlexists('GcovBranchCovered')
+	highlight GCovBranchCovered ctermfg=green guifg=green
+endif
+if !hlexists('GcovBranchPartlyCovered')
+	highlight GCovBranchPartlyCovered ctermfg=yellow guifg=yellow
+endif
+if !hlexists('GcovBranchUncovered')
+	highlight GCovBranchUncovered ctermfg=red guifg=red
 endif
 
 function auto_gcov_marker#BuildCov(...)
@@ -69,9 +66,11 @@ function auto_gcov_marker#BuildCov(...)
     endif
 endfunction
 
+let s:marks = []
+
 function auto_gcov_marker#ClearCov(...)
-    " FIXME: Only gcov tags should be cleared, not all of them
-    exe ":sign unplace *"
+	exe ":sign unplace * group=gcovmarker"
+	let s:marks = []
 endfunction
 
 function auto_gcov_marker#SetCov(...)
@@ -92,7 +91,6 @@ function auto_gcov_marker#SetCov(...)
     exe ":sign define gcov_branch_uncovered texthl=GcovBranchUncovered text=" . g:auto_gcov_marker_branch_uncovered
 
     " Read files and fillin marks dictionary
-    let marks = {}
     try
         let gcovfile = readfile(filename)
     catch
@@ -101,65 +99,36 @@ function auto_gcov_marker#SetCov(...)
     endtry
 
     for line in gcovfile
-        let type = split(line, ':')[0]
-        let linenum = split(line, '[:,]')[1]
-
-        if type == 'lcount'
-            let execcount = split(line, '[:,]')[2]
-            if execcount == '0'
-                let marks[linenum] = 'lineuncovered'
-            else
-                let marks[linenum] = 'linecovered'
-            endif
-        endif
-
-        if type == 'branch'
-            let branchcoverage = split(line, '[:,]')[2]
-            if branchcoverage == 'notexec'
-                if !has_key(marks, linenum) || marks[linenum] == 'lineuncovered' || marks[linenum] == 'branchuncovered'
-                    let marks[linenum] = 'branchuncovered'
-                endif
-                if marks[linenum] == 'linecovered' || marks[linenum] == 'branchpartlycovered' || marks[linenum] == 'branchcovered'
-                    let marks[linenum] = 'branchpartlycovered'
-                endif
-
-            elseif branchcoverage == 'taken'
-                if !has_key(marks, linenum) || marks[linenum] == 'linecovered' || marks[linenum] == 'branchcovered'
-                    let marks[linenum] = 'branchcovered'
-                endif
-                if marks[linenum] == 'lineuncovered' || marks[linenum] == 'branchpartlycovered' || marks[linenum] == 'branchuncovered'
-                    let marks[linenum] = 'branchpartlycovered'
-                endif
-
-            elseif branchcoverage == 'nottaken'
-                if !has_key(marks, linenum) || marks[linenum] == 'lineuncovered' || marks[linenum] == 'branchuncovered'
-                    let marks[linenum] = 'branchuncovered'
-                endif
-                if marks[linenum] == 'linecovered' || marks[linenum] == 'branchpartlycovered' || marks[linenum] == 'branchcovered'
-                    let marks[linenum] = 'branchpartlycovered'
-                endif
-
-            endif
-        endif
+		let tt = split(line, ':')
+		let mark = trim(tt[0])
+		if mark == "#####" || mark == "$$$$$"
+			let type = "gcov_line_uncovered"
+		elseif mark == "=====" || mark == "%%%%%"
+			let type = "gcov_branch_partly_covered"
+		elseif mark == '^0\*\?$'
+			let type = "gcov_line_uncovered"
+		elseif mark == '0*'
+			let type = "gcov_branch_uncovered"
+		elseif mark =~ '^[0-9]\+$'
+			let type = "gcov_line_covered"
+		elseif mark =~ '^[0-9]\+\*$'
+			let type = "gcov_branch_partly_covered"
+		else
+			let type = ""
+		endif
+		" echo mark "." type "." line
+		if type != ""
+			let linenum = trim(tt[1])
+			let s:marks += [[linenum, type]]
+		endif
     endfor
 
-    " Iterate over marks dictionary and place signs
-    for [line, marktype] in items(marks)
-        if marktype == 'linecovered'
-            exe ":sign place " . line. " line=" . line . " name=gcov_line_covered file=" . expand("%:p")
-        elseif marktype == 'lineuncovered'
-            exe ":sign place " . line . " line=" . line . " name=gcov_line_uncovered file=" . expand("%:p")
-        elseif marktype == 'branchcovered'
-            exe ":sign place " . line . " line=" . line . " name=gcov_branch_covered file=" . expand("%:p")
-        elseif marktype == 'branchpartlycovered'
-            exe ":sign place " . line . " line=" . line . " name=gcov_branch_partly_covered file=" . expand("%:p")
-        elseif marktype == 'branchuncovered'
-            exe ":sign place " . line . " line=" . line . " name=gcov_branch_uncovered file=" . expand("%:p")
-        endif
-    endfor
+
+	" Iterate over marks dictionary and place signs
+	for [line, marktype] in s:marks
+		execute ":sign place ".line." group=gcovmarker line=".line." name=".marktype." file=".expand("%:p")
+	endfor
 
     " Set the coverage file for the current buffer
-    let b:coveragefile = fnamemodify(filename, ':p')
+    "let b:coveragefile = fnamemodify(filename, ':p')
 endfunction
-
-let g:autoloaded_auto_gcov_marker = 1
